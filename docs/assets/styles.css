@@ -965,6 +965,75 @@ html:not(:lang(ja)) .opinion-item p {
     }
 }
 
+@media (max-width: 760px) {
+    html {
+        height: auto;
+        overflow-x: hidden;
+        overflow-y: auto;
+    }
+
+    body {
+        height: auto;
+        min-height: 100vh;
+        min-height: 100dvh;
+        overflow: visible;
+    }
+
+    .site-header {
+        position: sticky;
+        top: 0;
+        background: var(--paper);
+    }
+
+    main.shell {
+        display: block;
+        min-height: 0;
+        flex: 1 0 auto;
+    }
+
+    .page-deck {
+        position: static;
+        min-height: 0;
+        perspective: none;
+        touch-action: auto;
+    }
+
+    .page-slide,
+    .page-slide:nth-child(n) {
+        position: relative;
+        top: auto;
+        left: auto;
+        width: 100%;
+        height: auto;
+        min-height: 0;
+        overflow: visible;
+        padding: 40px 0;
+        border: 0;
+        border-bottom: 1px solid var(--line);
+        background: transparent;
+        box-shadow: none;
+        opacity: 1;
+        pointer-events: auto;
+        visibility: visible;
+        transform: none;
+        transition: none;
+        cursor: default;
+        scroll-margin-top: 88px;
+    }
+
+    .page-slide[data-position] {
+        z-index: auto;
+    }
+
+    .page-slide.hero {
+        padding-block: 40px;
+    }
+
+    .page-deck-controls {
+        display: none;
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
         scroll-behavior: auto !important;

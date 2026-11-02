@@ -11,8 +11,17 @@ const counter = document.querySelector("#page-counter");
 /** @type {HTMLElement} Bar that holds the counter and the help button. */
 const controls = document.querySelector("#page-deck-controls");
 
+/** @type {MediaQueryList} */
+const mobileLayout = window.matchMedia("(max-width: 760px)");
+
+/** @type {HTMLElement} */
+const header = document.querySelector(".site-header");
+
 /** @type {number} Index of the card in the center. */
 let current = 0;
+
+/** @type {number} Pending animation frame for mobile scroll tracking. */
+let mobileScrollFrame = 0;
 
 /** @type {number | undefined} Timer that reveals the help button after a quiet period. */
 let idleTimer;
@@ -45,28 +54,36 @@ function resetIdleHint() {
  */
 function showSlide(index, updateHash = true) {
     current = (index + slides.length) % slides.length;
-    slides.forEach((slide, slideIndex) => {
-        const offset = (slideIndex - current + slides.length) % slides.length;
-        const position = ["active", "next", "next-2", "previous-2", "previous"][offset] ?? "hidden";
-        const isActive = slideIndex === current;
-        slide.dataset.position = position;
-        slide.setAttribute("aria-hidden", String(!isActive));
-        slide.inert = position === "hidden";
-    });
+    if (mobileLayout.matches) {
+        slides.forEach((slide) => {
+            slide.dataset.position = "mobile";
+            slide.setAttribute("aria-hidden", "false");
+            slide.inert = false;
+        });
+    } else {
+        slides.forEach((slide, slideIndex) => {
+            const offset = (slideIndex - current + slides.length) % slides.length;
+            const position = ["active", "next", "next-2", "previous-2", "previous"][offset] ?? "hidden";
+            const isActive = slideIndex === current;
+            slide.dataset.position = position;
+            slide.setAttribute("aria-hidden", String(!isActive));
+            slide.inert = position === "hidden";
+        });
+    }
     counter.textContent = `${String(current + 1).padStart(2, "0")} / ${String(slides.length).padStart(2, "0")}`;
-    if (updateHash) history.replaceState(null, "", `#${slides[current].id}`);
+    if (updateHash && !mobileLayout.matches) history.replaceState(null, "", `#${slides[current].id}`);
 }
 
 // A click or focus on a card behind the front one brings it to the center.
 slides.forEach((slide, index) => {
     slide.addEventListener("click", (event) => {
-        if (index === current) return;
+        if (mobileLayout.matches || index === current) return;
         event.preventDefault();
         resetIdleHint();
         showSlide(index);
     });
     slide.addEventListener("focus", () => {
-        if (index !== current) showSlide(index);
+        if (!mobileLayout.matches && index !== current) showSlide(index);
     }, true);
 });
 
@@ -75,7 +92,7 @@ document.querySelectorAll('a[href^="#"]').forEach((link) => {
     link.addEventListener("click", (event) => {
         const targetId = link.getAttribute("href").slice(1);
         const targetIndex = slides.findIndex((slide) => slide.id === targetId);
-        if (targetIndex < 0) return;
+        if (targetIndex < 0 || mobileLayout.matches) return;
         event.preventDefault();
         resetIdleHint();
         showSlide(targetIndex);
@@ -87,6 +104,7 @@ document.querySelectorAll('a[href^="#"]').forEach((link) => {
  * @param {WheelEvent} event
  */
 deck.addEventListener("wheel", (event) => {
+    if (mobileLayout.matches) return;
     const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
     if (Math.abs(delta) < 20) return;
     resetIdleHint();
@@ -110,6 +128,7 @@ deck.addEventListener("wheel", (event) => {
  * @param {KeyboardEvent} event
  */
 document.addEventListener("keydown", (event) => {
+    if (mobileLayout.matches) return;
     if (event.key === "ArrowLeft") {
         event.preventDefault();
         showSlide(current - 1);
@@ -124,6 +143,42 @@ document.addEventListener("keydown", (event) => {
  */
 document.addEventListener("keydown", (event) => {
     if (event.key !== "Tab") resetIdleHint();
+});
+
+window.addEventListener("hashchange", () => {
+    if (!mobileLayout.matches) return;
+    const targetIndex = slides.findIndex((slide) => slide.id === decodeURIComponent(location.hash.slice(1)));
+    if (targetIndex >= 0) showSlide(targetIndex, false);
+});
+
+window.addEventListener("scroll", () => {
+    if (!mobileLayout.matches || mobileScrollFrame) return;
+    mobileScrollFrame = requestAnimationFrame(() => {
+        mobileScrollFrame = 0;
+        if (!mobileLayout.matches) return;
+
+        const marker = header.getBoundingClientRect().bottom + 24;
+        const distanceToMarker = (slide) => {
+            const bounds = slide.getBoundingClientRect();
+            if (bounds.top > marker) return bounds.top - marker;
+            if (bounds.bottom < marker) return marker - bounds.bottom;
+            return 0;
+        };
+        current = slides.reduce((nearest, slide, index) => {
+            return distanceToMarker(slide) < distanceToMarker(slides[nearest]) ? index : nearest;
+        }, 0);
+        counter.textContent = `${String(current + 1).padStart(2, "0")} / ${String(slides.length).padStart(2, "0")}`;
+    });
+}, { passive: true });
+
+mobileLayout.addEventListener("change", () => {
+    if (mobileLayout.matches) {
+        showSlide(current, false);
+        return;
+    }
+
+    showSlide(current);
+    window.scrollTo(0, 0);
 });
 
 // Start on the card named by the address bar, or on the first card.
